@@ -197,7 +197,7 @@ def preferencesAskAndWrite(nameOfPreferencesFile = "Preferences.csv", haveWeRunT
         elif(whatPreferenceToChange == 'l'):
             preferencesDictionary = lengthChange(nameOfPreferencesFile)
         else:
-            print("There has been a wierd as fuck error, and if you were trying to change preferences I'm sorry but that just isn't going to happen anymore, buddy.")
+            print("There has been a wierd as heck error, and if you were trying to change preferences I'm sorry but that just isn't going to happen anymore, buddy.")
             return preferencesReader(nameOfPreferencesFile)
 
 
@@ -253,7 +253,7 @@ def facebookScraper(url = 'fakeurl', scrollDownLength = 25):
         candidates = []
         containerSplit = []
         tempLinkHolder = []
-        package = []                        #List of data about car deal with following layout: ['Price', 'Year', 'Make', 'Model', - some amount of other descriptive shit - 'number mile written in format 100k', 'the word 'miles'']
+        package = []                        #List of data about car deal with following layout: ['Price', 'Year', 'Make', 'Model', - some amount of other descriptive stuff - 'number mile written in format 100k', 'the word 'miles'']
         carDict = {}
         familiarityChecker = {}
 
@@ -263,7 +263,7 @@ def facebookScraper(url = 'fakeurl', scrollDownLength = 25):
         driver.get(url)
         time.sleep(5)
 
-        for i in range(int(scrollDownLength)):#  just fuckin load this shit up with a billion webpages
+        for i in range(int(scrollDownLength)):#  just heckin load this stuff up with a billion webpages
             driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
             time.sleep(1)
 
@@ -300,13 +300,13 @@ def facebookScraper(url = 'fakeurl', scrollDownLength = 25):
             # for dataSingular in dataPlural:
             #     # print(dataSingular)
             #     j+=1
-            #     if(j>2):#           i>2 because the first 2 are always price and year which can only serve to fuck thigns up
+            #     if(j>2):#           i>2 because the first 2 are always price and year which can only serve to heck thigns up
             #         if(dataSingular.lower() in models):
             #             print("T ")
             #             recognized = True
             #         else:
             #             print('F ')
-            # if(recognized):#This part used to check against a list of car models to see if the text gathered contained a car model, but this was innefective as fuck first of all,
+            # if(recognized):#This part used to check against a list of car models to see if the text gathered contained a car model, but this was innefective as heck first of all,
             # and second of all checking against edmunds's URL custom was much more efficient, and effective
             package.append(dataPlural)
             package[len(package)-1].append(tempLinkHolder[i-1])
@@ -367,8 +367,8 @@ def edmundsCompare(package, url1 = "fakeurl", url2 = "fakeurl"):
                 for thing in tableContainer:
                     # table = tableContainer.
                     table = thing.find_elements_by_css_selector('table[class="estimated-values-table text-gray-darker mb-0_5 mt-1_5 table"]')
-                for somebullshit in table:
-                    cells = somebullshit.find_elements_by_css_selector('td[class="text-right"]')
+                for somestuff in table:
+                    cells = somestuff.find_elements_by_css_selector('td[class="text-right"]')
                 pricesTemp = []
                 prices = []
                 for cell in cells:
@@ -497,9 +497,9 @@ def priceComparer(carPackage, pricePackage):
             # carPackage.remove(car)
 
 
-    # tempArrayForShitProgrammingPractice = []
+    # tempArrayForStuffProgrammingPractice = []
     # for car in carPackage:
-    #     tempArrayForShitProgrammingPractice.append(car[0])
+    #     tempArrayForStuffProgrammingPractice.append(car[0])
     i = 1
     for car in badCarBoyVeryBadAndNaughty:
         print("Unworkable car that will be removed automatically: ",car," ",i)
