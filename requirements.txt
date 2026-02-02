@@ -1,0 +1,14 @@
+# Core Dependencies
+selenium>=4.16.0
+webdriver-manager>=4.0.1
+beautifulsoup4>=4.12.2
+requests>=2.31.0
+pandas>=2.1.4
+
+# Utilities
+lxml>=5.1.0
+python-dateutil>=2.8.2
+
+# Optional but recommended
+colorama>=0.4.6  # For colored terminal output
+tqdm>=4.66.1     # For progress bars
