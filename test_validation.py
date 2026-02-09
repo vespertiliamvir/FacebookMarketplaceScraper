@@ -12,43 +12,43 @@ def test_imports():
     
     try:
         from scraper import config
-        print("  ✓ config")
+        print("  [+] config")
     except Exception as e:
         errors.append(f"config: {e}")
     
     try:
         from scraper import utils
-        print("  ✓ utils")
+        print("  [+] utils")
     except Exception as e:
         errors.append(f"utils: {e}")
     
     try:
         from scraper import preferences
-        print("  ✓ preferences")
+        print("  [+] preferences")
     except Exception as e:
         errors.append(f"preferences: {e}")
     
     try:
         from scraper import facebook_scraper
-        print("  ✓ facebook_scraper")
+        print("  [+] facebook_scraper")
     except Exception as e:
         errors.append(f"facebook_scraper: {e}")
     
     try:
         from scraper import price_comparator
-        print("  ✓ price_comparator")
+        print("  [+] price_comparator")
     except Exception as e:
         errors.append(f"price_comparator: {e}")
     
     try:
         from scraper import data_processor
-        print("  ✓ data_processor")
+        print("  [+] data_processor")
     except Exception as e:
         errors.append(f"data_processor: {e}")
     
     try:
         from scraper import csv_exporter
-        print("  ✓ csv_exporter")
+        print("  [+] csv_exporter")
     except Exception as e:
         errors.append(f"csv_exporter: {e}")
     
@@ -71,7 +71,7 @@ def test_utils():
     for input_val, expected in tests:
         result = clean_price(input_val)
         if result == expected:
-            print(f"  ✓ clean_price('{input_val}') = {result}")
+            print(f"  [+] clean_price('{input_val}') = {result}")
         else:
             errors.append(f"clean_price('{input_val}'): expected {expected}, got {result}")
     
@@ -85,21 +85,21 @@ def test_utils():
     for input_val, expected in tests:
         result = clean_mileage(input_val)
         if result == expected:
-            print(f"  ✓ clean_mileage('{input_val}') = {result}")
+            print(f"  [+] clean_mileage('{input_val}') = {result}")
         else:
             errors.append(f"clean_mileage('{input_val}'): expected {expected}, got {result}")
     
     # Test parse_car_title
     result = parse_car_title("2015 Honda Civic LX")
     if result['year'] == '2015' and result['make'] == 'Honda' and result['model'] == 'Civic':
-        print(f"  ✓ parse_car_title('2015 Honda Civic LX') = {result}")
+        print(f"  [+] parse_car_title('2015 Honda Civic LX') = {result}")
     else:
         errors.append(f"parse_car_title failed: {result}")
     
     # Test calculate_deal_ratio
     result = calculate_deal_ratio(10000, 12000)
     if result == 1.2:
-        print(f"  ✓ calculate_deal_ratio(10000, 12000) = {result}")
+        print(f"  [+] calculate_deal_ratio(10000, 12000) = {result}")
     else:
         errors.append(f"calculate_deal_ratio: expected 1.2, got {result}")
     
@@ -138,19 +138,19 @@ def test_data_processor():
     processed = processor.process(listings)
     
     if len(processed) == 2:
-        print(f"  ✓ Processed {len(processed)} listings")
+        print(f"  [+] Processed {len(processed)} listings")
     else:
         errors.append(f"Expected 2 listings, got {len(processed)}")
     
     # Check deal ratios calculated
     if processed[0].get('deal_ratio') is not None:
-        print(f"  ✓ Deal ratios calculated")
+        print(f"  [+] Deal ratios calculated")
     else:
         errors.append("Deal ratios not calculated")
     
     # Check sorting (best deal first)
     if processed[0]['deal_ratio'] >= processed[1]['deal_ratio']:
-        print(f"  ✓ Listings sorted correctly")
+        print(f"  [+] Listings sorted correctly")
     else:
         errors.append("Listings not sorted correctly")
     
@@ -185,10 +185,10 @@ def test_csv_exporter():
     output_file = exporter.export(listings, 'test_output.csv')
     
     if output_file and os.path.exists(output_file):
-        print(f"  ✓ CSV file created: {output_file}")
+        print(f"  [+] CSV file created: {output_file}")
         # Clean up
         os.remove(output_file)
-        print(f"  ✓ Test file cleaned up")
+        print(f"  [+] Test file cleaned up")
     else:
         errors.append("CSV file not created")
     
@@ -226,10 +226,10 @@ def main():
         print("="*70)
         print("\nErrors found:")
         for error in all_errors:
-            print(f"  ✗ {error}")
+            print(f"  [X] {error}")
         return 1
     else:
-        print("✓ ALL VALIDATION TESTS PASSED")
+        print("[+] ALL VALIDATION TESTS PASSED")
         print("="*70)
         print("\nAll modules imported successfully!")
         print("All utility functions working correctly!")

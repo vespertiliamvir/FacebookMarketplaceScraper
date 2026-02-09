@@ -24,6 +24,8 @@ DEFAULT_SEARCH_PARAMS = {
     'max_listings': 500,  # Stop after N listings
     'make': '',  # Empty = all makes
     'model': '',  # Empty = all models
+    'scrape_descriptions': False,  # WARNING: Significantly slower (5-10 min extra for 500 listings)
+    'num_workers': 1,  # Number of parallel browsers (1-4)
 }
 
 # ============================================================================
@@ -32,10 +34,10 @@ DEFAULT_SEARCH_PARAMS = {
 
 SCRAPER_SETTINGS = {
     'headless': False,  # User confirmed visible mode works better
-    'scroll_pause_time': 2.0,  # Seconds to wait after each scroll
+    'scroll_pause_time': 3.0,  # Seconds to wait after each scroll (increased for more loading time)
     'page_load_timeout': 30,  # Seconds to wait for page load
     'element_wait_timeout': 10,  # Seconds to wait for elements
-    'max_scroll_attempts': 100,  # Maximum number of scrolls
+    'max_scroll_attempts': 200,  # Maximum number of scrolls (increased from 100)
     'scroll_increment': 1000,  # Pixels to scroll each time
 }
 
@@ -149,6 +151,14 @@ OUTPUT_SETTINGS = {
         'Year',
         'Make',
         'Model',
+        'Seller_Type',
+        'Profile_Age',
+        'Is_Business',
+        'Seller_Rating',
+        'Score',
+        'Green_Flags',
+        'Red_Flags',
+        'Notes',
     ],
 }
 
@@ -157,6 +167,16 @@ OUTPUT_SETTINGS = {
 # ============================================================================
 
 PREFERENCES_FILE = 'scraper_preferences.json'
+
+# ============================================================================
+# BROWSER PROFILE SETTINGS
+# ============================================================================
+
+# Directory for the persistent "Master" profile where user logs in
+MASTER_PROFILE_DIR = os.path.join(os.path.expanduser("~"), ".facebook_scraper_master_profile")
+
+# Base directory for temporary worker profiles
+WORKER_PROFILE_BASE_DIR = os.path.join(os.path.expanduser("~"), ".fb_scraper_workers")
 
 # ============================================================================
 # MISSING DATA PLACEHOLDERS

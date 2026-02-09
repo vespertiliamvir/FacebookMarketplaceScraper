@@ -123,17 +123,40 @@ class PreferencesManager:
         
         # Check if preferences exist
         if os.path.exists(self.preferences_file):
-            print(f"{Fore.GREEN}✓ Found saved preferences!{Style.RESET_ALL}\n")
+            print(f"{Fore.GREEN}[+] Found saved preferences!{Style.RESET_ALL}\n")
             self.display_current_preferences()
             
+            # Auto-run countdown
+            print(f"{Fore.CYAN}Press ANY KEY to modify settings, or wait 3 seconds to auto-run...{Style.RESET_ALL}")
+            
+            import msvcrt
+            import time
+            
+            start_time = time.time()
+            key_pressed = False
+            
+            while time.time() - start_time < 3:
+                if msvcrt.kbhit():
+                    msvcrt.getch()  # Consume the key press
+                    key_pressed = True
+                    break
+                time.sleep(0.1)
+            
+            if not key_pressed:
+                print(f"\n{Fore.GREEN}[+] Auto-running with saved settings{Style.RESET_ALL}")
+                return True
+            
+            # User pressed a key, show options
+            print()
             choice = self._get_input(
                 "Do you want to:\n"
                 "  1. Use these settings\n"
                 "  2. Modify settings\n"
                 "  3. Reset to defaults\n"
                 "  4. Exit\n"
-                "Enter choice (1-4): ",
-                valid_options=['1', '2', '3', '4']
+                "  5. Run Login Setup (Fix Login Issues)\n"
+                "Enter choice (1-5): ",
+                valid_options=['1', '2', '3', '4', '5']
             )
             
             if choice == '1':
@@ -141,10 +164,13 @@ class PreferencesManager:
             elif choice == '3':
                 self.preferences = DEFAULT_SEARCH_PARAMS.copy()
                 self.save_preferences()
-                print(f"\n{Fore.GREEN}✓ Reset to default settings{Style.RESET_ALL}")
+                print(f"\n{Fore.GREEN}[+] Reset to default settings{Style.RESET_ALL}")
                 return self.interactive_setup()
             elif choice == '4':
                 return False
+            elif choice == '5':
+                self.preferences['run_login_setup'] = True
+                return True
             # If choice == '2', continue to modification
         else:
             print(f"{Fore.YELLOW}No saved preferences found. Let's set up your search!{Style.RESET_ALL}\n")
@@ -155,7 +181,7 @@ class PreferencesManager:
         
         # Save and confirm
         self.save_preferences()
-        print(f"\n{Fore.GREEN}✓ Preferences saved!{Style.RESET_ALL}")
+        print(f"\n{Fore.GREEN}[+] Preferences saved!{Style.RESET_ALL}")
         
         self.display_current_preferences()
         
@@ -167,8 +193,10 @@ class PreferencesManager:
         
         # Location
         print(f"\n{Fore.CYAN}--- LOCATION SETTINGS ---{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}  * Tip: Enter multiple locations separated by commas (e.g. 'atlanta, marietta, roswell'){Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}  * The scraper will visit each location in sequence (Grid Search).{Style.RESET_ALL}")
         location = self._get_input(
-            f"Enter location (city or zip code) [{self.preferences.get('location')}]: ",
+            f"Enter location(s) [{self.preferences.get('location')}]: ",
             allow_empty=True
         )
         if location:
@@ -271,6 +299,34 @@ class PreferencesManager:
         )
         if max_listings is not None:
             self.preferences['max_listings'] = max_listings
+        
+        # Description scraping (with warning)
+        print(f"\n{Fore.YELLOW}--- DETAILED DESCRIPTIONS (OPTIONAL) ---{Style.RESET_ALL}")
+        print(f"{Fore.RED}[!] WARNING: Enabling this will significantly slow down scraping!{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}  * Adds 5-10 minutes for 500 listings")
+        print(f"{Fore.YELLOW}  * Scraper must click into each listing to get full description")
+        print(f"{Fore.YELLOW}  * Default preview text is usually sufficient for AI analysis{Style.RESET_ALL}\n")
+        
+        current_setting = self.preferences.get('scrape_descriptions', False)
+        scrape_desc = self._get_yes_no(
+            f"Scrape full descriptions? (y/n) [{'Yes' if current_setting else 'No'}]: ",
+            default='n' if not current_setting else 'y'
+        )
+        self.preferences['scrape_descriptions'] = scrape_desc
+
+        # Parallel Scraping
+        print(f"\n{Fore.CYAN}--- PARALLEL SCRAPING ---{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}  * Speed up scraping by running multiple browsers at once.{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}  * Each browser handles a portion of the price range.{Style.RESET_ALL}")
+        
+        num_workers = self._get_number(
+            f"Number of parallel browsers (1-4) [{self.preferences.get('num_workers', 1)}]: ",
+            allow_empty=True,
+            min_val=1,
+            max_val=4
+        )
+        if num_workers is not None:
+            self.preferences['num_workers'] = num_workers
     
     def _get_input(self, prompt: str, valid_options: Optional[list] = None, allow_empty: bool = False) -> str:
         """
@@ -337,18 +393,24 @@ class PreferencesManager:
             except ValueError:
                 print(f"{Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
     
-    def _get_yes_no(self, prompt: str) -> bool:
+    def _get_yes_no(self, prompt: str, default: str = None) -> bool:
         """
         Get yes/no input.
         
         Args:
             prompt: Prompt to display
+            default: Default value ('y' or 'n') if user presses Enter
         
         Returns:
             True for yes, False for no
         """
         while True:
             response = input(prompt).strip().lower()
+            
+            # Handle empty input with default
+            if not response and default:
+                return default.lower() in ['y', 'yes']
+            
             if response in ['y', 'yes']:
                 return True
             elif response in ['n', 'no']:
@@ -356,18 +418,35 @@ class PreferencesManager:
             else:
                 print(f"{Fore.RED}Please enter 'y' or 'n'{Style.RESET_ALL}")
     
-    def build_facebook_url(self) -> str:
+    def build_facebook_url(self, location_override: str = None) -> str:
         """
         Build Facebook Marketplace URL from preferences.
+        
+        Uses Facebook's current search endpoint format with category_id.
+        Note: Make/model filtering doesn't work via URL params anymore,
+        so we'll filter results after scraping.
+        
+        Args:
+            location_override: Optional location to use instead of preference default
         
         Returns:
             Complete Facebook Marketplace search URL
         """
-        base_url = "https://www.facebook.com/marketplace"
-        location = self.preferences.get('location', 'atlanta').lower().replace(' ', '-')
+        import urllib.parse
         
-        # Build URL with parameters
-        url = f"{base_url}/{location}/vehicles?"
+        base_url = "https://www.facebook.com/marketplace"
+        location = location_override if location_override else self.preferences.get('location', '30068')
+        
+        # Clean up location string
+        location = location.strip()
+        
+        # URL encode the location to handle spaces (e.g. "New York" -> "New%20York")
+        # Facebook generally accepts city names with spaces if encoded, or zip codes.
+        encoded_location = urllib.parse.quote(location)
+        
+        # Use search endpoint with vehicles category
+        # Category ID 546583916084032 = Vehicles
+        url = f"{base_url}/{encoded_location}/search/?"
         
         params = []
         
@@ -391,17 +470,14 @@ class PreferencesManager:
         
         # Radius
         if self.preferences.get('radius_miles'):
-            # Facebook uses radius in miles
             params.append(f"radius={self.preferences['radius_miles']}")
         
-        # Make and model (if specified)
-        # Note: Facebook's URL structure for make/model may vary
-        # This is a simplified version
-        if self.preferences.get('make'):
-            params.append(f"make={self.preferences['make']}")
-        if self.preferences.get('model'):
-            params.append(f"model={self.preferences['model']}")
-        
+        # Vehicles category and query
+        params.append("query=Vehicles")
+        params.append("category_id=546583916084032")
         params.append("exact=false")
+        
+        # Note: Make/model filtering will be done post-scrape
+        # Facebook's URL params for make/model don't work reliably anymore
         
         return url + "&".join(params)

@@ -241,26 +241,21 @@ class PriceComparator:
         """
         Get fair market price for a listing.
         
-        Parses title to extract year/make/model, then fetches price.
+        Uses pre-parsed year/make/model from listing if available.
         
         Args:
-            listing: Listing dictionary with 'title' field
+            listing: Listing dictionary with 'year', 'make', 'model' fields
         
         Returns:
             Fair market price or None
         """
-        title = listing.get('title', '')
-        if not title:
-            return None
-        
-        # Parse title
-        parsed = parse_car_title(title)
-        year = parsed.get('year')
-        make = parsed.get('make')
-        model = parsed.get('model')
+        # Use pre-parsed data from scraper
+        year = listing.get('year')
+        make = listing.get('make')
+        model = listing.get('model')
         
         if not all([year, make, model]):
-            logger.debug(f"Could not parse year/make/model from: {title}")
+            logger.debug(f"Missing year/make/model in listing: {listing.get('title', 'N/A')}")
             return None
         
         # Fetch price
@@ -271,21 +266,20 @@ class PriceComparator:
         Enrich all listings with fair market prices.
         
         Args:
-            listings: List of listing dictionaries
+            listings: List of listing dictionaries (already have year/make/model)
         
         Returns:
-            Enriched listings with 'fair_market_price', 'year', 'make', 'model' fields
+            Enriched listings with 'fair_market_price' field
         """
         logger.info(f"Enriching {len(listings)} listings with price data...")
         
         enriched = []
         for i, listing in enumerate(listings, 1):
             try:
-                # Parse title
-                parsed = parse_car_title(listing.get('title', ''))
-                listing['year'] = parsed.get('year')
-                listing['make'] = parsed.get('make')
-                listing['model'] = parsed.get('model')
+                # Year/make/model already parsed by scraper
+                year = listing.get('year')
+                make = listing.get('make')
+                model = listing.get('model')
                 
                 # Get fair market price
                 fair_price = self.get_price_for_listing(listing)

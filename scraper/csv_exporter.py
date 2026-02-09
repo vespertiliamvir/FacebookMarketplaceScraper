@@ -61,6 +61,14 @@ class CSVExporter:
             'year': 'Year',
             'make': 'Make',
             'model': 'Model',
+            'seller_type': 'Seller_Type',
+            'profile_age': 'Profile_Age',
+            'is_business': 'Is_Business',
+            'seller_rating': 'Seller_Rating',
+            'score': 'Score',
+            'green_flags': 'Green_Flags',
+            'red_flags': 'Red_Flags',
+            'notes': 'Notes',
         }
         
         df = df.rename(columns=column_mapping)

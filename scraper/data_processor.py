@@ -9,6 +9,7 @@ from typing import List, Dict, Any
 
 from scraper.utils import calculate_deal_ratio
 from scraper.config import MISSING_DATA
+from scraper.scoring import ScoringEngine
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +18,14 @@ class DataProcessor:
     """
     Processes scraped listing data.
     
-    Calculates deal ratios, sorts by best deals, and filters invalid entries.
+    Calculates deal ratios, scores listings, and sorts by best value.
     """
     
     def __init__(self):
         """Initialize data processor."""
         self.processed_count = 0
         self.filtered_count = 0
+        self.scoring_engine = ScoringEngine()
     
     def calculate_deal_ratios(self, listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -56,12 +58,33 @@ class DataProcessor:
         logger.info(f"Calculated {with_ratios}/{len(listings)} deal ratios")
         
         return listings
-    
-    def sort_by_deal_ratio(self, listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+    def score_listings(self, listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Sort listings by deal ratio (best deals first).
+        Calculate quality score for each listing using ScoringEngine.
         
-        Listings without deal ratios are placed at the end.
+        Args:
+            listings: List of listing dictionaries
+            
+        Returns:
+            Listings with 'score' and flag fields added
+        """
+        logger.info("Scoring listings...")
+        
+        for listing in listings:
+            result = self.scoring_engine.calculate_score(listing)
+            
+            # Flatten result into listing dict
+            listing['score'] = result['score']
+            listing['green_flags'] = ", ".join(result['green_flags'])
+            listing['red_flags'] = ", ".join(result['red_flags'])
+            listing['notes'] = "; ".join(result['notes'])
+            
+        return listings
+    
+    def sort_listings(self, listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Sort listings by Score (descending), then Deal Ratio.
         
         Args:
             listings: List of listing dictionaries
@@ -69,21 +92,16 @@ class DataProcessor:
         Returns:
             Sorted listings
         """
-        logger.info("Sorting listings by deal ratio...")
+        logger.info("Sorting listings by Score...")
         
-        # Separate listings with and without ratios
-        with_ratios = [l for l in listings if l.get('deal_ratio') is not None]
-        without_ratios = [l for l in listings if l.get('deal_ratio') is None]
+        # Sort by Score (descending), then Deal Ratio (descending)
+        # Handle None values for deal_ratio by treating them as -1
+        listings.sort(key=lambda x: (
+            x.get('score', 0),
+            x.get('deal_ratio') if x.get('deal_ratio') is not None else -1
+        ), reverse=True)
         
-        # Sort those with ratios (highest first = best deals)
-        with_ratios.sort(key=lambda x: x['deal_ratio'], reverse=True)
-        
-        # Combine: best deals first, then listings without ratios
-        sorted_listings = with_ratios + without_ratios
-        
-        logger.info(f"Sorted {len(with_ratios)} listings by deal ratio, {len(without_ratios)} without ratios at end")
-        
-        return sorted_listings
+        return listings
     
     def filter_invalid_listings(self, listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -163,7 +181,8 @@ class DataProcessor:
         1. Filter invalid listings
         2. Clean data
         3. Calculate deal ratios
-        4. Sort by deal ratio
+        4. Score listings
+        5. Sort by Score
         
         Args:
             listings: Raw listing data
@@ -182,8 +201,11 @@ class DataProcessor:
         # Calculate deal ratios
         listings = self.calculate_deal_ratios(listings)
         
-        # Sort by deal ratio
-        listings = self.sort_by_deal_ratio(listings)
+        # Score listings
+        listings = self.score_listings(listings)
+        
+        # Sort by Score
+        listings = self.sort_listings(listings)
         
         self.processed_count = len(listings)
         logger.info(f"Processing complete: {self.processed_count} listings ready for export")

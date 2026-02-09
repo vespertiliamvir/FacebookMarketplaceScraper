@@ -48,17 +48,17 @@ def print_step(step_num: int, total_steps: int, description: str):
 
 def print_success(message: str):
     """Print success message."""
-    print(f"{Fore.GREEN}✓ {message}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}[+] {message}{Style.RESET_ALL}")
 
 
 def print_error(message: str):
     """Print error message."""
-    print(f"{Fore.RED}✗ {message}{Style.RESET_ALL}")
+    print(f"{Fore.RED}[!] {message}{Style.RESET_ALL}")
 
 
 def print_info(message: str):
     """Print info message."""
-    print(f"{Fore.CYAN}ℹ {message}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}[*] {message}{Style.RESET_ALL}")
 
 
 def main():
@@ -71,66 +71,136 @@ def main():
         print_step(1, 5, "Configure Search Preferences")
         prefs_manager = PreferencesManager()
         
+        # Check if we need to run login setup (Manual override via prefs)
         if not prefs_manager.interactive_setup():
             print_info("Scraping cancelled by user.")
             return 0
+            
+        # Handle manual "Run Login Setup" request from menu
+        if prefs_manager.get('run_login_setup', False):
+            from scraper.auth import AuthManager
+            AuthManager.interactive_login_flow()
+            prefs_manager.set('run_login_setup', False)
+            prefs_manager.save_preferences()
+
+        # ============================================================================
+        # AUTHENTICATION CHECK (Auto-Login System)
+        # ============================================================================
+        from scraper.auth import AuthManager
         
-        # Build Facebook URL
-        facebook_url = prefs_manager.build_facebook_url()
+        print_info("Verifying Facebook session before scraping...")
+        
+        # 1. Check if Master Profile exists and is valid
+        if not AuthManager.master_profile_exists() or not AuthManager.validate_session(headless=True):
+            print_error("Session invalid, expired, or missing.")
+            print_info("Initiating automatic login flow to restore access...")
+            
+            # Launch interactive login
+            AuthManager.interactive_login_flow()
+            
+            # Final validation
+            if not AuthManager.validate_session(headless=True):
+                print_error("Login verification failed.")
+                print_info("You may continue, but the scraper will likely hit login walls.")
+                if not prefs_manager._get_yes_no("Continue anyway? (y/n): ", default='n'):
+                    return 0
+            else:
+                print_success("Session verified! Proceeding with scrape...")
+        else:
+            print_success("Session verified! Ready to scrape.")
+
+        # ============================================================================
+        # GRID SEARCH SETUP (Multi-Location)
+        # ============================================================================
+        raw_location = prefs_manager.get('location', 'atlanta')
+        locations = [loc.strip() for loc in raw_location.split(',') if loc.strip()]
+        
         max_listings = prefs_manager.get('max_listings', 500)
+        num_workers = prefs_manager.get('num_workers', 1)
         
-        print_success(f"Configuration complete! Searching for up to {max_listings} listings")
+        print_success(f"Configuration complete! Target: {len(locations)} location(s), ~{max_listings} listings each.")
         
         # Step 2: Scrape Facebook Marketplace
         print_step(2, 5, "Scraping Facebook Marketplace")
-        print_info("Opening browser... This may take a moment.")
-        print_info(f"Target URL: {facebook_url}")
-        print_info("TIP: The browser will be visible. Don't close it manually!")
         
-        scraper = FacebookMarketplaceScraper(facebook_url, max_listings)
+        all_listings = []
         
-        try:
-            listings = scraper.scrape()
+        for i, loc in enumerate(locations):
+            print(f"\n{Fore.MAGENTA}{'='*60}")
+            print(f">>> GRID SEARCH [{i+1}/{len(locations)}]: {loc.upper()}")
+            print(f"{'='*60}{Style.RESET_ALL}")
             
-            if not listings:
-                print_error("No listings found. Try adjusting your search parameters.")
-                return 1
+            # Prepare preferences for this location
+            current_prefs = prefs_manager.preferences.copy()
+            current_prefs['location'] = loc
             
-            print_success(f"Scraped {len(listings)} listings from Facebook Marketplace")
+            # Build URL for this specific location
+            facebook_url = prefs_manager.build_facebook_url(location_override=loc)
+            
+            location_listings = []
+            
+            if num_workers > 1:
+                print_info(f"Starting PARALLEL scraping in {loc} ({num_workers} workers)")
+                try:
+                    from scraper.parallel_manager import ParallelScraperManager
+                    # Pass the location-specific prefs
+                    manager = ParallelScraperManager(current_prefs, num_workers)
+                    location_listings = manager.run()
+                except Exception as e:
+                    print_error(f"Parallel scraping failed for {loc}: {e}")
+                    logger.error(f"Parallel scraping error ({loc}): {e}", exc_info=True)
+            else:
+                # Single Browser Mode
+                print_info(f"Opening browser for {loc}...")
+                print_info(f"Target URL: {facebook_url}")
+                
+                # Get filters
+                make_filter = prefs_manager.get('make')
+                model_filter = prefs_manager.get('model')
+                scrape_descriptions = prefs_manager.get('scrape_descriptions', False)
+                min_price = prefs_manager.get('min_price')
+                max_price = prefs_manager.get('max_price')
+                
+                scraper = FacebookMarketplaceScraper(
+                    url=facebook_url, 
+                    max_listings=max_listings, 
+                    make_filter=make_filter, 
+                    model_filter=model_filter, 
+                    scrape_descriptions=scrape_descriptions,
+                    min_price=min_price,
+                    max_price=max_price
+                )
+                
+                try:
+                    location_listings = scraper.scrape()
+                except Exception as e:
+                    print_error(f"Scraping failed for {loc}: {e}")
+                    logger.error(f"Scraping error ({loc}): {e}", exc_info=True)
+            
+            if location_listings:
+                print_success(f"Found {len(location_listings)} listings in {loc}")
+                all_listings.extend(location_listings)
+            else:
+                print_error(f"No listings found in {loc}")
+                
+        # End of Grid Search Loop
         
-        except Exception as e:
-            print_error(f"Scraping failed: {e}")
-            logger.error(f"Scraping error: {e}", exc_info=True)
+        listings = all_listings
+        
+        if not listings:
+            print_error("No listings found across all locations.")
             return 1
-        
-        # Step 3: Fetch fair market prices
-        print_step(3, 5, "Fetching Fair Market Prices")
-        print_info("Comparing prices with Edmunds.com...")
-        print_info("This may take a few minutes depending on number of listings.")
-        
-        with PriceComparator() as comparator:
-            try:
-                # Show progress bar
-                print()
-                with tqdm(total=len(listings), desc="Price lookups", unit="car") as pbar:
-                    enriched_listings = []
-                    for listing in listings:
-                        # Enrich single listing
-                        comparator.get_price_for_listing(listing)
-                        enriched_listings.append(listing)
-                        pbar.update(1)
-                
-                # Final enrichment pass to add parsed fields
-                enriched_listings = comparator.enrich_listings(listings)
-                
-                with_prices = sum(1 for l in enriched_listings if l.get('fair_market_price'))
-                print_success(f"Retrieved prices for {with_prices}/{len(enriched_listings)} listings")
             
-            except Exception as e:
-                print_error(f"Price comparison failed: {e}")
-                logger.error(f"Price comparison error: {e}", exc_info=True)
-                # Continue with listings even without prices
-                enriched_listings = listings
+        print_success(f"Total aggregated listings: {len(listings)}")
+        
+        # Step 3: Price comparison (DISABLED - will be implemented later)
+        print_step(3, 5, "Price Comparison")
+        print_info("Price comparison is currently disabled (Edmunds blocking requests)")
+        print_info("Skipping price lookup - proceeding with scraped data only")
+        
+        # Skip price comparison for now
+        enriched_listings = listings
+        print_success(f"Skipped price comparison for {len(enriched_listings)} listings")
         
         # Step 4: Process data
         print_step(4, 5, "Processing Data")
@@ -157,7 +227,7 @@ def main():
                 print_success(f"Results exported to: {output_file}")
                 print()
                 print(f"{Fore.CYAN}{'='*70}")
-                print(f"{Fore.GREEN}✓ SCRAPING COMPLETE!{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}[+] SCRAPING COMPLETE!{Style.RESET_ALL}")
                 print(f"{Fore.CYAN}{'='*70}{Style.RESET_ALL}")
                 print()
                 print(f"{Fore.YELLOW}Next Steps:{Style.RESET_ALL}")
@@ -192,4 +262,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # Required for PyInstaller/Auto-Py-To-Exe + Multiprocessing on Windows
+    import multiprocessing
+    multiprocessing.freeze_support()
+    
     sys.exit(main())
