@@ -200,12 +200,13 @@ class ParallelScraperManager:
         total_range = max_p - min_p
         
         # Enforce minimum range per worker to avoid "too close" ranges
-        # Reduced to $20 to allow parallel workers on tight budgets (e.g. $2900-$3000 split 4 ways)
-        min_range_per_worker = 20
+        # Set to $200 per user request to ensure distinct results
+        min_range_per_worker = 200
         if total_range / chunks < min_range_per_worker:
             adjusted_chunks = max(1, total_range // min_range_per_worker)
             if adjusted_chunks < chunks:
-                print(f"  [!] Price range too small for {chunks} workers. Reducing to {adjusted_chunks} workers.")
+                print(f"  [!] Total range (${total_range}) is too small for {chunks} workers (need ${min_range_per_worker}/worker).")
+                print(f"      Reducing to {adjusted_chunks} worker(s) to avoid duplicate results.")
                 chunks = adjusted_chunks
         
         step = total_range // chunks
