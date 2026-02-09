@@ -200,8 +200,8 @@ class ParallelScraperManager:
         total_range = max_p - min_p
         
         # Enforce minimum range per worker to avoid "too close" ranges
-        # Increased to $250 per user request to avoid micro-segmentation
-        min_range_per_worker = 250
+        # Reduced to $20 to allow parallel workers on tight budgets (e.g. $2900-$3000 split 4 ways)
+        min_range_per_worker = 20
         if total_range / chunks < min_range_per_worker:
             adjusted_chunks = max(1, total_range // min_range_per_worker)
             if adjusted_chunks < chunks:
