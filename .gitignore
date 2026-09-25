@@ -45,3 +45,9 @@ Thumbs.db
 # Old script (keep for reference but don't track changes)
 Facebook Car Scraper.py
 Preferences.csv
+
+# Local virtualenv
+.venv/
+
+# Scraped listings, seller profiles/reviews and photos: personal data, never pushed (the repo is public)
+report/data/
